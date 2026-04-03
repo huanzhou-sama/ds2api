@@ -98,6 +98,29 @@ func TestProcessToolSievePassesThroughNonToolXMLBlock(t *testing.T) {
 	}
 }
 
+func TestProcessToolSieveNonToolXMLKeepsSuffixForToolParsing(t *testing.T) {
+	var state toolStreamSieveState
+	chunk := `<tool_call><title>plain xml</title></tool_call><invoke name="read_file"><parameters>{"path":"README.MD"}</parameters></invoke>`
+	events := processToolSieveChunk(&state, chunk, []string{"read_file"})
+	events = append(events, flushToolSieve(&state, []string{"read_file"})...)
+
+	var textContent strings.Builder
+	toolCalls := 0
+	for _, evt := range events {
+		textContent.WriteString(evt.Content)
+		toolCalls += len(evt.ToolCalls)
+	}
+	if !strings.Contains(textContent.String(), `<tool_call><title>plain xml</title></tool_call>`) {
+		t.Fatalf("expected leading non-tool XML to be preserved, got %q", textContent.String())
+	}
+	if strings.Contains(textContent.String(), `<invoke name="read_file">`) {
+		t.Fatalf("expected invoke tool XML to be intercepted, got %q", textContent.String())
+	}
+	if toolCalls != 1 {
+		t.Fatalf("expected exactly one parsed tool call from suffix, got %d events=%#v", toolCalls, events)
+	}
+}
+
 func TestProcessToolSievePartialXMLTagHeldBack(t *testing.T) {
 	var state toolStreamSieveState
 	// Chunk ends with a partial XML tool tag.
@@ -384,7 +407,7 @@ func TestOpeningXMLTagNotLeakedAsContent(t *testing.T) {
 
 func TestProcessToolSieveInterceptsAttemptCompletionLeak(t *testing.T) {
 	var state toolStreamSieveState
-	// Simulate an agent outputting attempt_completion XML tag 
+	// Simulate an agent outputting attempt_completion XML tag
 	// which shouldn't leak to text output, even if it fails to parse as a valid tool.
 	chunks := []string{
 		"Done with task.\n",

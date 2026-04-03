@@ -74,7 +74,7 @@ func consumeXMLToolCapture(captured string, toolNames []string) (prefix string, 
 		// If this block does not look like an executable tool-call payload,
 		// pass it through as normal content (e.g. user-requested XML snippets).
 		if !looksLikeExecutableXMLToolCallBlock(xmlBlock, pair.open) {
-			return captured, nil, "", true
+			return prefixPart + xmlBlock, nil, suffixPart, true
 		}
 		// Looks like XML tool syntax but failed to parse — consume it to avoid leak.
 		return prefixPart, nil, suffixPart, true
